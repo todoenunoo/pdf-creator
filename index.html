@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creador de PDF</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+        h2 {
+            color: #333;
+        }
+        #image-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            max-height: 150px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: transform 0.2s ease-in-out;
+        }
+        img:hover {
+            transform: scale(1.1);
+        }
+        .preview {
+            border: 2px solid #000;
+            padding: 5px;
+            background: white;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <h2>Selecciona imágenes para generar el PDF</h2>
+    <input type="file" id="imageInput" multiple accept="image/*">
+    <div id="image-container"></div>
+    <button onclick="generatePDF()">Generar PDF</button>
+    <button onclick="chooseShareOption()">Compartir PDF</button>
+    
+    <script>
+        let selectedImages = [];
+        let pdfBlob = null;
+
+        document.getElementById('imageInput').addEventListener('change', function(event) {
+            const files = event.target.files;
+            const container = document.getElementById('image-container');
+            
+            for (let file of files) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.classList.add('preview');
+                    container.appendChild(img);
+                    selectedImages.push(img.src);
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            let pageHeight = doc.internal.pageSize.getHeight();
+            let imgWidth = 150;
+            let imgHeight = 100;
+            
+            for (let i = 0; i < selectedImages.length; i++) {
+                if (i % 2 === 0 && i !== 0) doc.addPage();
+                let yPosition = (i % 2 === 0) ? 20 : pageHeight / 2;
+                doc.addImage(selectedImages[i], 'JPEG', 30, yPosition, imgWidth, imgHeight);
+            }
+
+            pdfBlob = doc.output('blob');
+            const pdfURL = URL.createObjectURL(pdfBlob);
+            const a = document.createElement('a');
+            a.href = pdfURL;
+            a.download = 'imagenes.pdf';
+            a.click();
+        }
+
+        function chooseShareOption() {
+            if (!pdfBlob) {
+                alert('Primero genera el PDF');
+                return;
+            }
+            
+            let option = confirm("¿Quieres compartir por WhatsApp? (Cancelar para compartir por Gmail)");
+            if (option) {
+                sharePDF('whatsapp');
+            } else {
+                sharePDF('gmail');
+            }
+        }
+
+        function sharePDF(method) {
+            const pdfURL = URL.createObjectURL(pdfBlob);
+            
+            if (method === 'whatsapp') {
+                const whatsappURL = `https://api.whatsapp.com/send?text=Descarga%20tu%20PDF%20aquí:%20${pdfURL}`;
+                window.open(whatsappURL, '_blank');
+            } else {
+                const gmailURL = `mailto:?subject=Archivo%20PDF&body=Adjunto%20el%20archivo%20PDF:%20${pdfURL}`;
+                window.open(gmailURL, '_blank');
+            }
+        }
+    </script>
+</body>
+</html>
