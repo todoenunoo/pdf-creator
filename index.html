@@ -22,6 +22,10 @@
             gap: 10px;
             margin: 20px 0;
         }
+        .image-wrapper {
+            position: relative;
+            display: inline-block;
+        }
         img {
             max-width: 100%;
             height: auto;
@@ -59,6 +63,17 @@
             border-radius: 5px;
             background: white;
         }
+        .trash-icon {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: rgba(255, 0, 0, 0.7);
+            border: none;
+            color: white;
+            padding: 5px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -67,11 +82,12 @@
     <div id="image-container"></div>
     <button onclick="generatePDF()">Generar PDF</button>
     <button onclick="chooseShareOption()">Compartir PDF</button>
-    
+
     <script>
         let selectedImages = [];
         let pdfBlob = null;
 
+        // Maneja la selección de archivos y muestra una vista previa
         document.getElementById('imageInput').addEventListener('change', function(event) {
             const files = event.target.files;
             const container = document.getElementById('image-container');
@@ -82,24 +98,69 @@
                     const img = document.createElement('img');
                     img.src = e.target.result;
                     img.classList.add('preview');
-                    container.appendChild(img);
+                    
+                    // Crear un contenedor para la imagen y el botón de eliminación
+                    const imageWrapper = document.createElement('div');
+                    imageWrapper.classList.add('image-wrapper');
+                    
+                    // Crear el botón de eliminar
+                    const trashIcon = document.createElement('button');
+                    trashIcon.classList.add('trash-icon');
+                    trashIcon.innerHTML = '🗑️';
+                    trashIcon.onclick = function() {
+                        container.removeChild(imageWrapper);
+                        // Eliminar la imagen de la lista de imágenes seleccionadas
+                        const index = selectedImages.indexOf(img.src);
+                        if (index !== -1) {
+                            selectedImages.splice(index, 1);
+                        }
+                    };
+
+                    // Agregar la imagen y el botón al contenedor
+                    imageWrapper.appendChild(img);
+                    imageWrapper.appendChild(trashIcon);
+                    container.appendChild(imageWrapper);
+                    
+                    // Agregar la imagen al arreglo de imágenes seleccionadas
                     selectedImages.push(img.src);
                 }
                 reader.readAsDataURL(file);
             }
         });
 
+        // Genera el PDF con las imágenes seleccionadas
         function generatePDF() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             let pageHeight = doc.internal.pageSize.getHeight();
             let imgWidth = 150;
             let imgHeight = 100;
-            
+            let xPosition = 30;
+            let yPosition = 20;
+            let imagesPerPage = 2; // Dos imágenes por página
+
+            // Añadir las imágenes al PDF
             for (let i = 0; i < selectedImages.length; i++) {
-                if (i % 2 === 0 && i !== 0) doc.addPage();
-                let yPosition = (i % 2 === 0) ? 20 : pageHeight / 2;
-                doc.addImage(selectedImages[i], 'JPEG', 30, yPosition, imgWidth, imgHeight);
+                // Si hay dos imágenes, comenzamos una nueva página
+                if (i % imagesPerPage === 0 && i !== 0) {
+                    doc.addPage();
+                    yPosition = 20; // Resetear la posición Y
+                }
+
+                // Si es la última imagen y hay un número impar de imágenes, centrarla en la página
+                if (i === selectedImages.length - 1 && selectedImages.length % 2 !== 0) {
+                    xPosition = (doc.internal.pageSize.width - imgWidth) / 2; // Centrar horizontalmente
+                }
+
+                doc.addImage(selectedImages[i], 'JPEG', xPosition, yPosition, imgWidth, imgHeight);
+
+                // Actualizar la posición Y para la siguiente imagen
+                if (i % imagesPerPage === 0) {
+                    yPosition += imgHeight + 10; // Espacio entre imágenes
+                } else {
+                    yPosition += imgHeight + 10;
+                    xPosition = 30; // Resetear posición X para la siguiente fila
+                }
             }
 
             pdfBlob = doc.output('blob');
@@ -110,12 +171,13 @@
             a.click();
         }
 
+        // Permite elegir la opción de compartir el PDF
         function chooseShareOption() {
             if (!pdfBlob) {
                 alert('Primero genera el PDF');
                 return;
             }
-            
+
             let option = confirm("¿Quieres compartir por WhatsApp? (Cancelar para compartir por Gmail)");
             if (option) {
                 sharePDF('whatsapp');
@@ -124,9 +186,10 @@
             }
         }
 
+        // Comparte el PDF según el método seleccionado
         function sharePDF(method) {
             const pdfURL = URL.createObjectURL(pdfBlob);
-            
+
             if (method === 'whatsapp') {
                 const whatsappURL = `https://api.whatsapp.com/send?text=Descarga%20tu%20PDF%20aquí:%20${pdfURL}`;
                 window.open(whatsappURL, '_blank');
